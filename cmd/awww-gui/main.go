@@ -32,7 +32,9 @@ func main() {
 		os.Exit(0)
 	}
 
-	config, err := config.New(filepath.Join(os.Getenv("HOME"), CONFIG), logger)
+	path := searchConfig()
+
+	config, err := config.New(path, logger)
 	if err != nil {
 		logger.Error("creating config", "err", err)
 		os.Exit(1)
@@ -103,4 +105,16 @@ func createLogger(logLevel string) hclog.Logger {
 		Level: level,
 		Color: hclog.AutoColor,
 	})
+}
+
+func searchConfig() string {
+	prod := filepath.Join(os.Getenv("HOME"), CONFIG)
+	_, err := os.Stat(prod)
+	if err == nil {
+		return prod
+	}
+
+	exe, _ := os.Executable()
+	dev := filepath.Join(filepath.Dir(exe), "main.conf")
+	return dev
 }
