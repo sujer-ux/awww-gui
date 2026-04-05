@@ -1,3 +1,4 @@
+//go:generate go run github.com/lotos-linux/ini/cmd/ini-generator -i $GOFILE -o ../../build
 package config
 
 import (
@@ -5,6 +6,7 @@ import (
 	"github.com/lotos-linux/ini"
 )
 
+// ini:main.conf
 type Conf struct {
 	General `section:"General"`
 }

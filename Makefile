@@ -1,7 +1,8 @@
 .PHONY: build exec-d exec
 
 build:
-	go build -v -o ./bin/awww-gui ./cmd/awww-gui/main.go
+	go generate ./internal/config
+	go build -v -o ./build/awww-gui ./cmd/awww-gui/main.go
 
 exec-d:
 	./bin/awww-gui -d --log-level trace

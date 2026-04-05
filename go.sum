@@ -14,6 +14,8 @@ github.com/hashicorp/go-hclog v1.6.3 h1:Qr2kF+eVWjTiYmU7Y31tYlP1h0q/X3Nl3tPGdaB1
 github.com/hashicorp/go-hclog v1.6.3/go.mod h1:W4Qnvbt70Wk/zYJryRzDRU/4r0kIg0PVHBcfoyhpF5M=
 github.com/lotos-linux/ini v0.0.0-20260405141359-229f53302add h1:Y/TjJ1M2Zm2bnv3+s+gttWB905I2CNwJCSrRig1/8ug=
 github.com/lotos-linux/ini v0.0.0-20260405141359-229f53302add/go.mod h1:PPixudHauYClIk8F/MMQgTBP863GPJuPb5yQR2DSISE=
+github.com/lotos-linux/ini/cmd/ini-generator v0.0.0-20260405141359-229f53302add h1:oZ92+3b6tlSeWeJ0d1rE+V5IuHaDkNJEzhhnD84cVXM=
+github.com/lotos-linux/ini/cmd/ini-generator v0.0.0-20260405141359-229f53302add/go.mod h1:RQYFFpIwPi8H9gZlb9GItCuQ0BfjwttOor20I/981fI=
 github.com/mattn/go-colorable v0.1.9/go.mod h1:u6P/XSegPjTcexA+o6vUJrdnUu04hMope9wVRipJSqc=
 github.com/mattn/go-colorable v0.1.12 h1:jF+Du6AlPIjs2BiUiQlKOX0rt3SujHxPnksPKZbaA40=
 github.com/mattn/go-colorable v0.1.12/go.mod h1:u5H1YNBxpqRaxsYJYSkiCWKzEfiAb1Gb520KVy5xxl4=
