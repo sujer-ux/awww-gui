@@ -9,7 +9,6 @@ import (
 	"awww-gui/internal/images"
 	"awww-gui/internal/signals"
 	"awww-gui/internal/state"
-	"log"
 	"os"
 	"path/filepath"
 
@@ -23,7 +22,7 @@ func main() {
 	flags := flags.Get()
 	logger := createLogger(flags.LogLevel)
 
-	if !flags.Deamon {
+	if !flags.Daemon {
 		err := signals.SendSignal()
 		if err != nil {
 			logger.Error("Errror send signal", "err", err)
@@ -33,10 +32,9 @@ func main() {
 	}
 
 	path := searchConfig()
-
 	config, err := config.New(path, logger)
 	if err != nil {
-		logger.Error("creating config", "err", err)
+		logger.Error("Failed to create config", "err", err)
 		os.Exit(1)
 	}
 
@@ -73,12 +71,12 @@ func main() {
 		logger.Error("ErrorStarting", "err", err)
 	}
 
-	initAwww(awww, imgmanager)
+	initAwww(awww, imgmanager, logger)
 
 	gtk.Main()
 }
 
-func initAwww(awww *awww.Awww, imgmanager *images.Manager) {
+func initAwww(awww *awww.Awww, imgmanager *images.Manager, logger hclog.Logger) {
 	awww.Init()
 	var name string
 
@@ -89,8 +87,21 @@ func initAwww(awww *awww.Awww, imgmanager *images.Manager) {
 	}
 
 	image := imgmanager.Get(name)
-	awww.Set(image.Original)
-	log.Println(current.Get())
+	err = awww.Set(image.Original)
+	if err != nil {
+		logger.Error("Failed to set wallpaper",
+			"name", image.Name,
+			"format", image.Format,
+			"image", image.Original,
+			"err", err,
+		)
+	} else {
+		logger.Trace("Wallpaper successfully set",
+			"name", image.Name,
+			"format", image.Format,
+			"image", image.Original,
+		)
+	}
 }
 
 func createLogger(logLevel string) hclog.Logger {

@@ -7,19 +7,19 @@ import (
 
 type Flags struct {
 	LogLevel string
-	Deamon   bool
+	Daemon   bool
 }
 
 func Get() Flags {
 	flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ExitOnError)
 
 	logLevel := flag.String("log-level", "info", "log level")
-	deamon := flag.Bool("d", false, "")
+	daemon := flag.Bool("d", false, "")
 
 	flag.Parse()
 
 	return Flags{
 		LogLevel: *logLevel,
-		Deamon:   *deamon,
+		Daemon:   *daemon,
 	}
 }
