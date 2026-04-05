@@ -21,6 +21,12 @@ const CONFIG = ".config/awww-gui/main.conf"
 
 func main() {
 	flags := flags.Get()
+
+	if !flags.Deamon {
+		signals.SendSignal()
+		os.Exit(0)
+	}
+
 	logger := createLogger(flags.LogLevel)
 
 	config, err := config.New(filepath.Join(os.Getenv("HOME"), CONFIG), logger)
@@ -47,16 +53,22 @@ func main() {
 	state.SetAwww(awww)
 	state.SetImages(imgmanager)
 
-	err = signals.Init(flags.Deamon, func() {
-		gui.Open(state)
+	app := gui.New(state)
+
+	err = signals.StartDaemon(func() {
+		if !app.Active() {
+			logger.Debug("Open Gui (SIGUSR1)")
+			app.Open()
+		} else {
+			logger.Debug("Close Gui (SIGUSR1)")
+			app.Close()
+		}
 	})
 	if err != nil {
 		logger.Error("ErrorStarting", "err", err)
 	}
 
-	if flags.Deamon {
-		initAwww(awww, imgmanager)
-	}
+	initAwww(awww, imgmanager)
 
 	gtk.Main()
 }

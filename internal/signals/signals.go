@@ -8,19 +8,13 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/gotk3/gotk3/glib"
 	"github.com/gotk3/gotk3/gtk"
 )
 
 const lockFile = "/tmp/awww-gui.lock"
 
-func Init(daemon bool, usr func()) error {
-	if daemon {
-		return startDaemon(usr)
-	}
-	return sendSignal()
-}
-
-func startDaemon(usr func()) error {
+func StartDaemon(usr func()) error {
 	f, err := os.OpenFile(lockFile, os.O_CREATE|os.O_RDWR, 0644)
 	if err != nil {
 		return err
@@ -41,7 +35,7 @@ func startDaemon(usr func()) error {
 	return nil
 }
 
-func sendSignal() error {
+func SendSignal() error {
 	data, err := os.ReadFile(lockFile)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -78,10 +72,14 @@ func Watch(onUSR1 func()) {
 			switch sig {
 			case syscall.SIGUSR1:
 				if onUSR1 != nil {
-					onUSR1()
+					glib.IdleAdd(func() {
+						onUSR1()
+					})
 				}
 			case syscall.SIGINT, syscall.SIGTERM:
-				gtk.MainQuit()
+				glib.IdleAdd(func() {
+					gtk.MainQuit()
+				})
 			}
 		}
 	}()
