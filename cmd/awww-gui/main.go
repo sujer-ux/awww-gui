@@ -21,13 +21,16 @@ const CONFIG = ".config/awww-gui/main.conf"
 
 func main() {
 	flags := flags.Get()
+	logger := createLogger(flags.LogLevel)
 
 	if !flags.Deamon {
-		signals.SendSignal()
+		err := signals.SendSignal()
+		if err != nil {
+			logger.Error("Errror send signal", "err", err)
+			os.Exit(3)
+		}
 		os.Exit(0)
 	}
-
-	logger := createLogger(flags.LogLevel)
 
 	config, err := config.New(filepath.Join(os.Getenv("HOME"), CONFIG), logger)
 	if err != nil {
