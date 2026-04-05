@@ -38,7 +38,7 @@ func startDaemon(usr func()) error {
 	f.Sync()
 
 	go Watch(usr)
-	select {}
+	return nil
 }
 
 func sendSignal() error {

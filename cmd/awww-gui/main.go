@@ -9,6 +9,7 @@ import (
 	"awww-gui/internal/images"
 	"awww-gui/internal/signals"
 	"awww-gui/internal/state"
+	"log"
 	"os"
 	"path/filepath"
 
@@ -46,13 +47,18 @@ func main() {
 	state.SetAwww(awww)
 	state.SetImages(imgmanager)
 
-	signals.Init(flags.Deamon, func() {
+	err = signals.Init(flags.Deamon, func() {
 		gui.Open(state)
 	})
+	if err != nil {
+		logger.Error("ErrorStarting", "err", err)
+	}
 
 	if flags.Deamon {
 		initAwww(awww, imgmanager)
 	}
+
+	gtk.Main()
 }
 
 func initAwww(awww *awww.Awww, imgmanager *images.Manager) {
@@ -67,6 +73,7 @@ func initAwww(awww *awww.Awww, imgmanager *images.Manager) {
 
 	image := imgmanager.Get(name)
 	awww.Set(image.Original)
+	log.Println(current.Get())
 }
 
 func createLogger(logLevel string) hclog.Logger {
