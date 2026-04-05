@@ -11,12 +11,12 @@ type Flags struct {
 }
 
 func Get() Flags {
-	flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ExitOnError)
+	fs := flag.NewFlagSet(os.Args[0], flag.ExitOnError)
 
 	logLevel := flag.String("log-level", "info", "log level")
-	daemon := flag.Bool("d", false, "")
+	daemon := flag.Bool("d", false, "Run as daemon mode")
 
-	flag.Parse()
+	fs.Parse(os.Args[1:])
 
 	return Flags{
 		LogLevel: *logLevel,
