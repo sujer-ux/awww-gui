@@ -1,31 +1,23 @@
 package state
 
 import (
-	"awww-gui/internal/awww"
 	"awww-gui/internal/config"
 	"awww-gui/internal/flags"
-	"awww-gui/internal/images"
+	"awww-gui/internal/wallctl"
 	"sync"
 )
 
 type State struct {
-	mu     *sync.RWMutex
-	images *images.Manager
-	config *config.Conf
-	flags  *flags.Flags
-	awww   *awww.Awww
+	mu      *sync.RWMutex
+	config  *config.Conf
+	flags   *flags.Flags
+	wallctl *wallctl.Control
 }
 
 func New() *State {
 	return &State{
 		mu: &sync.RWMutex{},
 	}
-}
-
-func (s *State) GetImages() *images.Manager {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	return s.images
 }
 
 func (s *State) GetConfig() *config.Conf {
@@ -40,16 +32,10 @@ func (s *State) GetFlags() *flags.Flags {
 	return s.flags
 }
 
-func (s *State) GetAwww() *awww.Awww {
+func (s *State) GetWallctl() *wallctl.Control {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	return s.awww
-}
-
-func (s *State) SetImages(images *images.Manager) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.images = images
+	return s.wallctl
 }
 
 func (s *State) SetConfig(config *config.Conf) {
@@ -64,8 +50,8 @@ func (s *State) SetFlags(flags *flags.Flags) {
 	s.flags = flags
 }
 
-func (s *State) SetAwww(awww *awww.Awww) {
+func (s *State) SetWallctl(wallctl *wallctl.Control) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.awww = awww
+	s.wallctl = wallctl
 }

@@ -3,14 +3,16 @@ package main
 import (
 	"awww-gui/internal/awww"
 	"awww-gui/internal/config"
-	"awww-gui/internal/current"
 	"awww-gui/internal/flags"
 	"awww-gui/internal/gui"
 	"awww-gui/internal/images"
 	"awww-gui/internal/signals"
 	"awww-gui/internal/state"
+	"awww-gui/internal/wallctl"
+	"fmt"
 	"os"
 	"path/filepath"
+	"syscall"
 
 	"github.com/gotk3/gotk3/gtk"
 	"github.com/hashicorp/go-hclog"
@@ -23,12 +25,7 @@ func main() {
 	logger := createLogger(flags.LogLevel)
 
 	if !flags.Daemon {
-		err := signals.SendSignal()
-		if err != nil {
-			logger.Error("Errror send signal", "err", err)
-			os.Exit(3)
-		}
-		os.Exit(0)
+		sendToDaemon(&flags, logger)
 	}
 
 	path := searchConfig()
@@ -38,11 +35,10 @@ func main() {
 		os.Exit(1)
 	}
 
-	awww := awww.New(config.AwwwFlags)
-
 	gtk.Init(nil)
 
 	temp, _ := gtk.LabelNew("")
+	awww := awww.New(config.AwwwFlags)
 	imgmanager, err := images.NewManager(config.Folder, config.Size*temp.GetScaleFactor())
 	if err != nil {
 		logger.Error("images", "err", err)
@@ -53,55 +49,61 @@ func main() {
 	state := state.New()
 	state.SetFlags(&flags)
 	state.SetConfig(config)
-	state.SetAwww(awww)
-	state.SetImages(imgmanager)
+
+	wallctl := wallctl.New(awww, imgmanager, logger)
+	state.SetWallctl(wallctl)
 
 	app := gui.New(state)
 
-	err = signals.StartDaemon(func() {
-		if !app.Active() {
-			logger.Debug("Open Gui (SIGUSR1)")
-			app.Open()
-		} else {
-			logger.Debug("Close Gui (SIGUSR1)")
-			app.Close()
-		}
-	})
+	err = signals.StartDaemon(
+		func() {
+			if !app.Active() {
+				logger.Debug("Open Gui (SIGUSR1)")
+				app.Open()
+			} else {
+				logger.Debug("Close Gui (SIGUSR1)")
+				app.Close()
+			}
+		}, func() {
+			logger.Debug("random (SIGUSR2)")
+			wallctl.SetRandom()
+		})
 	if err != nil {
 		logger.Error("ErrorStarting", "err", err)
 	}
 
-	initAwww(awww, imgmanager, logger)
+	wallctl.SetCurrent()
 
 	gtk.Main()
 }
 
-func initAwww(awww *awww.Awww, imgmanager *images.Manager, logger hclog.Logger) {
-	awww.Init()
-	var name string
+func sendToDaemon(flags *flags.Flags, logger hclog.Logger) {
+	sm := signals.NewSignalManager()
 
-	name, err := current.Get()
+	running, err := sm.DStat()
 	if err != nil {
-		name = imgmanager.Random().Name
-		current.Set(name)
+		logger.Error("Failed to get process", "err", err)
+		os.Exit(3)
 	}
 
-	image := imgmanager.Get(name)
-	err = awww.Set(image.Original)
-	if err != nil {
-		logger.Error("Failed to set wallpaper",
-			"name", image.Name,
-			"format", image.Format,
-			"image", image.Original,
-			"err", err,
-		)
-	} else {
-		logger.Trace("Wallpaper successfully set",
-			"name", image.Name,
-			"format", image.Format,
-			"image", image.Original,
-		)
+	if !running {
+		fmt.Println("Daemon not running")
+		fmt.Println("run: setsid awww-gui -d")
+		os.Exit(0)
 	}
+
+	if flags.Kill {
+		sm.Send(syscall.SIGTERM)
+		os.Exit(0)
+	}
+
+	if flags.Random {
+		sm.Send(syscall.SIGUSR2)
+		os.Exit(0)
+	}
+
+	sm.Send(syscall.SIGUSR1)
+	os.Exit(0)
 }
 
 func createLogger(logLevel string) hclog.Logger {

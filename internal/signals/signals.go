@@ -14,7 +14,7 @@ import (
 
 const lockFile = "/tmp/awww-gui.lock"
 
-func StartDaemon(usr func()) error {
+func StartDaemon(usr1 func(), usr2 func()) error {
 	f, err := os.OpenFile(lockFile, os.O_CREATE|os.O_RDWR, 0644)
 	if err != nil {
 		return err
@@ -31,39 +31,54 @@ func StartDaemon(usr func()) error {
 	fmt.Fprintf(f, "%d", os.Getpid())
 	f.Sync()
 
-	go Watch(usr)
+	go Watch(usr1, usr2)
 	return nil
 }
 
-func SendSignal() error {
+type SignalManager struct {
+	pid     int
+	process *os.Process
+}
+
+func NewSignalManager() *SignalManager {
+	return &SignalManager{}
+}
+
+func (sm *SignalManager) DStat() (bool, error) {
 	data, err := os.ReadFile(lockFile)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return fmt.Errorf("daemon not running")
+			return false, nil
 		}
-		return fmt.Errorf("failed to read lock file: %v", err)
+		return false, fmt.Errorf("failed to read lock file: %v", err)
 	}
 
 	pidStr := strings.TrimSpace(string(data))
 	pid, err := strconv.Atoi(pidStr)
 	if err != nil {
-		return fmt.Errorf("invalid PID in lock file: %v", err)
+		return false, fmt.Errorf("invalid PID in lock file: %v", err)
 	}
 
 	process, err := os.FindProcess(pid)
 	if err != nil {
-		return fmt.Errorf("daemon not running (stale lock file)")
+		return false, fmt.Errorf("daemon not running (stale lock file)")
 	}
 
 	err = process.Signal(syscall.Signal(0))
 	if err != nil {
-		return fmt.Errorf("daemon not running (process %d is dead)", pid)
+		return false, fmt.Errorf("daemon not running (process %d is dead)", pid)
 	}
 
-	return process.Signal(syscall.SIGUSR1)
+	sm.pid = pid
+	sm.process = process
+	return true, nil
 }
 
-func Watch(onUSR1 func()) {
+func (sm *SignalManager) Send(sig os.Signal) (bool, error) {
+	return true, sm.process.Signal(sig)
+}
+
+func Watch(onUSR1 func(), onUSR2 func()) {
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGUSR1, syscall.SIGINT, syscall.SIGTERM)
 
@@ -74,6 +89,12 @@ func Watch(onUSR1 func()) {
 				if onUSR1 != nil {
 					glib.IdleAdd(func() {
 						onUSR1()
+					})
+				}
+			case syscall.SIGUSR2:
+				if onUSR2 != nil {
+					glib.IdleAdd(func() {
+						onUSR2()
 					})
 				}
 			case syscall.SIGINT, syscall.SIGTERM:
