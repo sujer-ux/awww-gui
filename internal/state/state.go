@@ -5,6 +5,8 @@ import (
 	"awww-gui/internal/flags"
 	"awww-gui/internal/wallctl"
 	"sync"
+
+	"github.com/hashicorp/go-hclog"
 )
 
 type State struct {
@@ -12,6 +14,7 @@ type State struct {
 	config  *config.Conf
 	flags   *flags.Flags
 	wallctl *wallctl.Control
+	logger  hclog.Logger
 }
 
 func New() *State {
@@ -38,6 +41,12 @@ func (s *State) GetWallctl() *wallctl.Control {
 	return s.wallctl
 }
 
+func (s *State) GetLogger() hclog.Logger {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.logger
+}
+
 func (s *State) SetConfig(config *config.Conf) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -54,4 +63,10 @@ func (s *State) SetWallctl(wallctl *wallctl.Control) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.wallctl = wallctl
+}
+
+func (s *State) SetLogger(logger hclog.Logger) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.logger = logger
 }

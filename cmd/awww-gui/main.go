@@ -68,6 +68,7 @@ func main() {
 
 	// create state
 	state := state.New()
+	state.SetLogger(logger)
 	state.SetFlags(&flags)
 	state.SetConfig(config)
 	state.SetWallctl(wallctl)

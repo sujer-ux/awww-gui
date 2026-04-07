@@ -16,8 +16,8 @@ import (
 	_ "image/png"
 
 	_ "github.com/deepteams/webp"
-	"github.com/hashicorp/go-hclog"
 
+	"github.com/hashicorp/go-hclog"
 	"golang.org/x/image/draw"
 )
 
@@ -85,6 +85,7 @@ func New(folderPath string, thumbnailsSize int, logger hclog.Logger) (*Manager, 
 		thumbnailsSize:  thumbnailsSize,
 		thumbFolderPath: thumbFolderPath,
 		imageIndex:      make(map[string]int),
+		log:             logger.Named("images"),
 	}
 
 	needRegenerate, err := mgr.checkSizeFile()

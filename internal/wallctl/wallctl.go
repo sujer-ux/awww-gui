@@ -23,7 +23,7 @@ func New(awww *awww.Awww, imgmngr *images.Manager, logger hclog.Logger) (*Contro
 	return &Control{
 		awww:    awww,
 		imgmngr: imgmngr,
-		logger:  logger,
+		logger:  logger.Named("wallctl"),
 	}, nil
 }
 

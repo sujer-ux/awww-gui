@@ -1,8 +1,11 @@
 package awww
 
 import (
+	"bytes"
+	"fmt"
 	"os/exec"
-	"strings"
+
+	"github.com/google/shlex"
 )
 
 type Awww struct {
@@ -21,14 +24,27 @@ func (a *Awww) Init() error {
 }
 
 func (a *Awww) Set(imagePath string) error {
-	args := []string{"img"}
+	args := []string{"img", imagePath}
 
-	args = append(args, imagePath)
-
-	if a.flags != "" {
-		args = append(args, strings.Fields(a.flags)...)
+	flags, err := shlex.Split(a.flags)
+	if err != nil {
+		return err
 	}
 
+	args = append(args, flags...)
+
 	cmd := exec.Command("awww", args...)
-	return cmd.Run()
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+
+	err = cmd.Run()
+	if err == nil {
+		return nil
+	}
+
+	return fmt.Errorf("exit code: %d\n%s\n%v",
+		cmd.ProcessState.ExitCode(),
+		stderr.String(),
+		err,
+	)
 }

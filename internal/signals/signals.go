@@ -80,7 +80,12 @@ func (sm *SignalManager) Send(sig os.Signal) error {
 
 func Watch(onUSR1 func(), onUSR2 func()) {
 	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, syscall.SIGUSR1, syscall.SIGINT, syscall.SIGTERM)
+	signal.Notify(sigChan,
+		syscall.SIGUSR1,
+		syscall.SIGUSR2,
+		syscall.SIGINT,
+		syscall.SIGTERM,
+	)
 
 	go func() {
 		for sig := range sigChan {
@@ -93,9 +98,7 @@ func Watch(onUSR1 func(), onUSR2 func()) {
 				}
 			case syscall.SIGUSR2:
 				if onUSR2 != nil {
-					glib.IdleAdd(func() {
-						onUSR2()
-					})
+					onUSR2()
 				}
 			case syscall.SIGINT, syscall.SIGTERM:
 				glib.IdleAdd(func() {
