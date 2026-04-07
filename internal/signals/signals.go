@@ -61,12 +61,12 @@ func (sm *SignalManager) DStat() (bool, error) {
 
 	process, err := os.FindProcess(pid)
 	if err != nil {
-		return false, fmt.Errorf("daemon not running (stale lock file)")
+		return false, nil
 	}
 
 	err = process.Signal(syscall.Signal(0))
 	if err != nil {
-		return false, fmt.Errorf("daemon not running (process %d is dead)", pid)
+		return false, nil
 	}
 
 	sm.pid = pid
@@ -74,8 +74,8 @@ func (sm *SignalManager) DStat() (bool, error) {
 	return true, nil
 }
 
-func (sm *SignalManager) Send(sig os.Signal) (bool, error) {
-	return true, sm.process.Signal(sig)
+func (sm *SignalManager) Send(sig os.Signal) error {
+	return sm.process.Signal(sig)
 }
 
 func Watch(onUSR1 func(), onUSR2 func()) {

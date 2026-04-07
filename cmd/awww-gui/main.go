@@ -9,6 +9,7 @@ import (
 	"awww-gui/internal/signals"
 	"awww-gui/internal/state"
 	"awww-gui/internal/wallctl"
+
 	"fmt"
 	"os"
 	"path/filepath"
@@ -21,89 +22,109 @@ import (
 const CONFIG = ".config/awww-gui/main.conf"
 
 func main() {
+	var err error
+
 	flags := flags.Get()
 	logger := createLogger(flags.LogLevel)
 
+	// client mode
 	if !flags.Daemon {
-		sendToDaemon(&flags, logger)
+		err = sendToDaemon(flags)
+		if err != nil {
+			logger.Error("Failed to send signal", "Error", err)
+			os.Exit(1)
+		}
+		os.Exit(0)
 	}
 
+	// daemon mode
+	// config
 	path := searchConfig()
 	config, err := config.New(path, logger)
 	if err != nil {
-		logger.Error("Failed to create config", "err", err)
-		os.Exit(1)
+		logger.Error("Failed to create config", "Error", err)
+		os.Exit(2)
 	}
 
+	// gtk start
 	gtk.Init(nil)
 
+	// image manager
 	temp, _ := gtk.LabelNew("")
 	awww := awww.New(config.AwwwFlags)
-	imgmanager, err := images.NewManager(config.Folder, config.Size*temp.GetScaleFactor())
+	imgmanager, err := images.New(config.Folder, config.Size*temp.GetScaleFactor(), logger)
 	if err != nil {
-		logger.Error("images", "err", err)
-		os.Exit(2)
+		logger.Error("Failed to create image manager", "Error", err)
+		os.Exit(3)
 	}
 	temp.Destroy()
 
+	// wallpaper manager
+	wallctl, err := wallctl.New(awww, imgmanager, logger)
+	if err != nil {
+		logger.Error("Failed to start awww-daemon", "Error", err)
+		os.Exit(4)
+	}
+
+	// create state
 	state := state.New()
 	state.SetFlags(&flags)
 	state.SetConfig(config)
-
-	wallctl := wallctl.New(awww, imgmanager, logger)
 	state.SetWallctl(wallctl)
 
+	// create gui
 	app := gui.New(state)
 
+	// wath signals
 	err = signals.StartDaemon(
+		// SIGUSR1
 		func() {
 			if !app.Active() {
-				logger.Debug("Open Gui (SIGUSR1)")
+				logger.Debug("Open Gui")
 				app.Open()
 			} else {
-				logger.Debug("Close Gui (SIGUSR1)")
+				logger.Debug("Close Gui")
 				app.Close()
 			}
-		}, func() {
-			logger.Debug("random (SIGUSR2)")
+		},
+		// SIGUSR2
+		func() {
+			logger.Debug("Random wallpapers")
 			wallctl.SetRandom()
 		})
 	if err != nil {
-		logger.Error("ErrorStarting", "err", err)
+		logger.Error("Starting daemon failed", "Error", err)
+		os.Exit(5)
 	}
 
+	// set last wallpapers
 	wallctl.SetCurrent()
-
 	gtk.Main()
 }
 
-func sendToDaemon(flags *flags.Flags, logger hclog.Logger) {
+func sendToDaemon(flags flags.Flags) error {
 	sm := signals.NewSignalManager()
 
 	running, err := sm.DStat()
 	if err != nil {
-		logger.Error("Failed to get process", "err", err)
-		os.Exit(3)
+		return fmt.Errorf("failed to get process: %v", err)
 	}
 
 	if !running {
 		fmt.Println("Daemon not running")
 		fmt.Println("run: setsid awww-gui -d")
-		os.Exit(0)
+		return nil
 	}
 
 	if flags.Kill {
-		sm.Send(syscall.SIGTERM)
-		os.Exit(0)
+		return sm.Send(syscall.SIGTERM)
 	}
 
 	if flags.Random {
-		sm.Send(syscall.SIGUSR2)
-		os.Exit(0)
+		return sm.Send(syscall.SIGUSR2)
 	}
 
-	sm.Send(syscall.SIGUSR1)
-	os.Exit(0)
+	return sm.Send(syscall.SIGUSR1)
 }
 
 func createLogger(logLevel string) hclog.Logger {

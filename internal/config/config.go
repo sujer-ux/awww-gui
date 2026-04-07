@@ -12,11 +12,18 @@ type Conf struct {
 }
 
 type General struct {
-	BGColor      string `def:"rgba(0,0,0,0)"`
-	BorderRadius int    `def:"10"`
-	Size         int    `def:"200"`
-	Folder       string `def:"~/.config/wallpapers"`
-	AwwwFlags    string `def:"--transition-type center --transition-duration 1 --transition-step 90 --transition-fps 60"`
+	// Background color
+	BGColor string `def:"rgba(0,0,0,0)"`
+	// Accent color
+	AccentСolor string `def:"rgba(255, 255, 255, 0)"`
+	// Preview border radius
+	BorderRadius int `def:"10"`
+	// Preview height
+	Size int `def:"200"`
+	// Wallpapers folder
+	Folder string `def:"~/.config/wallpapers"`
+	// Awww flags
+	AwwwFlags string `def:"--transition-type center --transition-duration 1 --transition-step 90 --transition-fps 60"`
 }
 
 func New(path string, logger hclog.Logger) (*Conf, error) {

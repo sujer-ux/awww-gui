@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"image"
 	"image/jpeg"
-	"log"
 	"math/rand"
 	"os"
 	"path/filepath"
@@ -17,6 +16,7 @@ import (
 	_ "image/png"
 
 	_ "github.com/deepteams/webp"
+	"github.com/hashicorp/go-hclog"
 
 	"golang.org/x/image/draw"
 )
@@ -24,11 +24,6 @@ import (
 const (
 	jpegQuality = 85
 )
-
-func init() {
-	log.SetPrefix("[imgmanager] ")
-	log.SetFlags(log.LstdFlags | log.Lmicroseconds)
-}
 
 type Image struct {
 	Thumbnail string
@@ -43,6 +38,7 @@ type Manager struct {
 	thumbFolderPath string
 	images          []*Image
 	imageIndex      map[string]int
+	log             hclog.Logger
 	mu              sync.RWMutex
 }
 
@@ -54,7 +50,7 @@ var supportedExtensions = map[string]string{
 	".webp": "webp",
 }
 
-func NewManager(folderPath string, thumbnailsSize int) (*Manager, error) {
+func New(folderPath string, thumbnailsSize int, logger hclog.Logger) (*Manager, error) {
 	if thumbnailsSize <= 0 {
 		return nil, fmt.Errorf("thumbnailsSize must be positive, got %d", thumbnailsSize)
 	}
@@ -118,7 +114,11 @@ func (m *Manager) checkSizeFile() (needRegenerate bool, err error) {
 	fmt.Sscanf(string(data), "%d", &savedSize)
 
 	if savedSize != m.thumbnailsSize {
-		log.Printf("size changed: %d -> %d, regenerating all thumbnails", savedSize, m.thumbnailsSize)
+		m.log.Debug(
+			"Size changed",
+			"Old", savedSize,
+			"New", m.thumbnailsSize,
+		)
 		return true, m.writeSizeFile()
 	}
 
@@ -127,7 +127,7 @@ func (m *Manager) checkSizeFile() (needRegenerate bool, err error) {
 
 func (m *Manager) writeSizeFile() error {
 	sizePath := filepath.Join(m.thumbFolderPath, ".size")
-	return os.WriteFile(sizePath, []byte(fmt.Sprintf("%d", m.thumbnailsSize)), 0644)
+	return os.WriteFile(sizePath, fmt.Appendf(nil, "%d", m.thumbnailsSize), 0644)
 }
 
 func (m *Manager) sync(forceRegenerate bool) error {
@@ -147,7 +147,11 @@ func (m *Manager) sync(forceRegenerate bool) error {
 
 	for _, img := range originals {
 		if seenNames[img.Name] {
-			log.Printf("duplicate name '%s' detected, skipping second file", img.Name)
+			m.log.Debug(
+				"duplicate detected, skipping second file",
+				"Name", img.Name,
+				"File", img.Original,
+			)
 			continue
 		}
 		seenNames[img.Name] = true
@@ -168,14 +172,25 @@ func (m *Manager) sync(forceRegenerate bool) error {
 	for thumbName := range existingThumbs {
 		thumbPath := filepath.Join(m.thumbFolderPath, thumbName+".jpg")
 		if err := os.Remove(thumbPath); err != nil {
-			log.Printf("failed to remove orphan thumbnail %s: %v", thumbPath, err)
+			m.log.Error(
+				"Failed to remove orphan thumbnail",
+				"File", thumbPath,
+				"Error", err,
+			)
 		} else {
-			log.Printf("removed orphan thumbnail: %s", thumbName)
+			m.log.Trace(
+				"Removed orphan thumbnail",
+				"File", thumbName,
+			)
 		}
 	}
 
 	if len(tasks) > 0 {
-		log.Printf("generating %d thumbnails using %d workers", len(tasks), runtime.NumCPU())
+		m.log.Debug(
+			"Generating thumbnails",
+			"Files", len(tasks),
+			"Workers", runtime.NumCPU(),
+		)
 		if err := m.generateThumbnailsParallel(tasks); err != nil {
 			return err
 		}
@@ -190,7 +205,10 @@ func (m *Manager) sync(forceRegenerate bool) error {
 		m.imageIndex[img.Name] = i
 	}
 
-	log.Printf("sync completed: %d images total", len(m.images))
+	m.log.Trace(
+		"Sync completed",
+		"Total", len(m.images),
+	)
 	return nil
 }
 
@@ -282,7 +300,7 @@ func (m *Manager) generateThumbnailsParallel(images []*Image) error {
 
 	var hasErrors bool
 	for err := range errCh {
-		log.Printf("%v", err)
+		m.log.Error("Generate thumbnail", "Error", err)
 		hasErrors = true
 	}
 
@@ -312,7 +330,7 @@ func (m *Manager) Get(name string) *Image {
 }
 
 func (m *Manager) Rescan() error {
-	log.Println("rescanning folder...")
+	m.log.Debug("Rescanning folder...")
 	return m.sync(false)
 }
 
@@ -322,7 +340,7 @@ func (m *Manager) Random() *Image {
 
 	count := len(m.images)
 	if count == 0 {
-		log.Println("warning: Random() called with no images available")
+		m.log.Warn("Random() called with no images available")
 		return nil
 	}
 
