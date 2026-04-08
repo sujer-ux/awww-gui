@@ -16,6 +16,7 @@ type General struct {
 	BGColor string `def:"rgba(0,0,0,0)"`
 	// Accent color
 	AccentСolor string `def:"rgba(255, 255, 255, 1)"`
+	Padding     int    `def:"40"`
 	// Preview border radius
 	BorderRadius int `def:"10"`
 	// Preview height

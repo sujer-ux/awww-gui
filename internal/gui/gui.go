@@ -21,6 +21,7 @@ type App struct {
 	wrapper  *gtk.FlowBox
 	wallctl  *wallctl.Control
 	pos      int
+	children []*gtk.FlowBoxChild
 	logger   hclog.Logger
 }
 
@@ -31,10 +32,11 @@ const SCROLLPADDING = 50
 
 func New(state *state.State) *App {
 	return &App{
-		state:   state,
-		window:  nil,
-		wallctl: state.GetWallctl(),
-		logger:  state.GetLogger().Named("gui"),
+		state:    state,
+		window:   nil,
+		wallctl:  state.GetWallctl(),
+		children: make([]*gtk.FlowBoxChild, 0),
+		logger:   state.GetLogger().Named("gui"),
 	}
 }
 
@@ -60,18 +62,35 @@ func (a *App) Open() error {
 		return err
 	}
 
+	a.wrapper.SetEvents(int(gdk.POINTER_MOTION_MASK | gdk.BUTTON_PRESS_MASK |
+		gdk.BUTTON_RELEASE_MASK | gdk.SCROLL_MASK))
 	a.wrapper.SetName("wrapper")
 	a.wrapper.SetColumnSpacing(SPACING)
-	a.wrapper.SetMarginTop(30)
-	a.wrapper.SetMarginBottom(20)
-	a.wrapper.SetMarginStart(SPACING)
-	a.wrapper.SetMarginEnd(SPACING)
+
+	conf := a.state.GetConfig()
+	a.wrapper.SetMarginTop(conf.Padding)
+	a.wrapper.SetMarginBottom(conf.Padding - 10)
+	a.wrapper.SetMarginStart(conf.Padding)
+	a.wrapper.SetMarginEnd(conf.Padding)
+
 	a.wrapper.SetCanFocus(true)
 	a.wrapper.SetSelectionMode(gtk.SELECTION_SINGLE)
 	a.wrapper.SetHomogeneous(false)
 	a.wrapper.SetHAlign(gtk.ALIGN_START)
 	a.wrapper.SetVAlign(gtk.ALIGN_START)
 	a.wrapper.SetProperty("orientation", uint(gtk.ORIENTATION_VERTICAL))
+
+	current, cErr := current.Get()
+	list := a.state.GetWallctl().GetList()
+	for _, image := range list {
+		child := a.createChild(image)
+		if cErr == nil && current == image.Name {
+			a.wrapper.SelectChild(child)
+			child.GrabFocus()
+		}
+		a.children = append(a.children, child)
+		a.wrapper.Add(child)
+	}
 
 	a.wrapper.Connect("key-press-event", func(_ interface{}, event *gdk.Event) bool {
 		keyEvent := gdk.EventKeyNewFromEvent(event)
@@ -90,16 +109,28 @@ func (a *App) Open() error {
 		}
 	})
 
-	current, cErr := current.Get()
-	list := a.state.GetWallctl().GetList()
-	for _, image := range list {
-		child := a.createChild(image)
-		if cErr == nil && current == image.Name {
-			a.wrapper.SelectChild(child)
-			child.GrabFocus()
+	a.wrapper.Connect("scroll-event", func(_ interface{}, event *gdk.Event) bool {
+		scrollEvent := gdk.EventScrollNewFromEvent(event)
+
+		next := scrollEvent.Direction() == gdk.SCROLL_DOWN
+		prev := scrollEvent.Direction() == gdk.SCROLL_UP
+
+		selected := a.wrapper.GetSelectedChildren()
+		if len(selected) == 0 {
+			return true
 		}
-		a.wrapper.Add(child)
-	}
+
+		currentIdx := selected[0].GetIndex()
+
+		if next && currentIdx+1 < len(a.children) {
+			a.wrapper.SelectChild(a.children[currentIdx+1])
+			a.children[currentIdx+1].GrabFocus()
+		} else if prev && currentIdx-1 >= 0 {
+			a.wrapper.SelectChild(a.children[currentIdx-1])
+			a.children[currentIdx-1].GrabFocus()
+		}
+		return true
+	})
 
 	a.wrapper.SetMaxChildrenPerLine(uint(len(list)))
 	a.viewport.Add(a.wrapper)
@@ -110,6 +141,7 @@ func (a *App) Open() error {
 
 func (a *App) Close() {
 	a.pos = 0
+	a.children = make([]*gtk.FlowBoxChild, 0)
 	a.window.Destroy()
 	a.window = nil
 }
@@ -165,6 +197,7 @@ func (a *App) createChild(image *images.Image) *gtk.FlowBoxChild {
 	}
 
 	preWrap, _ := gtk.BoxNew(gtk.ORIENTATION_HORIZONTAL, 0)
+	preWrap.SetName("border")
 	preWrap.Add(finalWidget)
 	preWrap.SetMarginBottom(10)
 	container.Add(preWrap)
@@ -173,12 +206,36 @@ func (a *App) createChild(image *images.Image) *gtk.FlowBoxChild {
 	title.SetHAlign(gtk.ALIGN_CENTER)
 	container.Add(title)
 
+	// Создаем EventBox
+	eventBox, _ := gtk.EventBoxNew()
+	eventBox.Add(container)
+	eventBox.SetEvents(int(gdk.BUTTON_PRESS_MASK))
+
+	// Двойной клик
+	eventBox.Connect("button-press-event", func(widget interface{}, event *gdk.Event) bool {
+		btnEvent := gdk.EventButtonNewFromEvent(event)
+		if btnEvent.Button() == 1 && btnEvent.Type() == gdk.EVENT_2BUTTON_PRESS {
+			current, _ := current.Get()
+			if current != image.Name {
+				a.wallctl.Set(image.Name)
+			}
+			a.Close()
+			return true
+		}
+		return false
+	})
+
 	child, _ := gtk.FlowBoxChildNew()
 	child.SetName("child")
 	child.SetHAlign(gtk.ALIGN_START)
 	child.SetVAlign(gtk.ALIGN_START)
 	child.SetHExpand(false)
 	child.SetVExpand(false)
+
+	// Добавляем EventBox вместо container
+	child.Add(eventBox)
+
+	// activate для клавиатуры
 	child.Connect("activate", func() {
 		current, _ := current.Get()
 		if current != image.Name {
@@ -187,7 +244,6 @@ func (a *App) createChild(image *images.Image) *gtk.FlowBoxChild {
 		a.Close()
 	})
 
-	child.Add(container)
 	return child
 }
 
@@ -219,7 +275,7 @@ func (a *App) move(child *gtk.FlowBoxChild) {
 	}
 
 	if right {
-		a.pos = windowWidth - SCROLLPADDING - end - SPACING
+		a.pos = windowWidth - (SCROLLPADDING + 50) - end - SPACING
 		gtkutils.AddStyle(a.viewport, fmt.Sprintf("#viewport {margin-left: %dpx}", a.pos))
 	}
 }
@@ -246,8 +302,12 @@ func (a *App) styling() error {
 			background: transparent;
 			color: #ffffff;
         }
+
+		#border {
+			margin: 2px;
+		}
         
-        #child:selected > box > box {
+        #child:selected #border {
             box-shadow: 0 0 0 2px %s; 
             border-radius: %dpx;
         }
