@@ -6,7 +6,7 @@ import (
 	"github.com/lotos-linux/ini"
 )
 
-// ini:main.conf
+// ini:awww.conf
 type Conf struct {
 	General `section:"General"`
 }
@@ -15,7 +15,7 @@ type General struct {
 	// Background color
 	BGColor string `def:"rgba(0,0,0,0)"`
 	// Accent color
-	AccentСolor string `def:"rgba(255, 255, 255, 0)"`
+	AccentСolor string `def:"rgba(255, 255, 255, 1)"`
 	// Preview border radius
 	BorderRadius int `def:"10"`
 	// Preview height

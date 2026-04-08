@@ -19,7 +19,8 @@ import (
 	"github.com/hashicorp/go-hclog"
 )
 
-const CONFIG = ".config/awww-gui/main.conf"
+const CONFIGPATH = ".config/awww-gui"
+const CONFIGFILE = "awww.conf"
 
 func main() {
 	var err error
@@ -143,13 +144,13 @@ func createLogger(logLevel string) hclog.Logger {
 }
 
 func searchConfig() string {
-	prod := filepath.Join(os.Getenv("HOME"), CONFIG)
+	prod := filepath.Join(os.Getenv("HOME"), CONFIGPATH, CONFIGFILE)
 	_, err := os.Stat(prod)
 	if err == nil {
 		return prod
 	}
 
 	exe, _ := os.Executable()
-	dev := filepath.Join(filepath.Dir(exe), "main.conf")
+	dev := filepath.Join(filepath.Dir(exe), CONFIGFILE)
 	return dev
 }

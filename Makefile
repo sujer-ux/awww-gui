@@ -7,6 +7,9 @@ build:
 daemon:
 	setsid ./build/awww-gui -d --log-level trace &
 
+daemon-d:
+	GTK_DEBUG=interactive setsid ./build/awww-gui -d --log-level trace &
+
 exec:
 	./build/awww-gui --log-level trace
 
@@ -16,3 +19,7 @@ random:
 kill:
 	awww kill
 	./build/awww-gui -kill
+
+install:
+	cp ./build/awww-gui ~/.config/scripts/awww-gui
+	cp ./build/awww.conf ~/.config/scripts/awww.conf
